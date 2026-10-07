@@ -18,11 +18,6 @@ pnpm start         # levantar en modo LIVE (órdenes reales en Binance)
 pnpm test          # correr tests
 ```
 
-## Qué hacer durante el desarrollo
-- El commit no es un lujo: hacer commit en grupos de cambios chicos.
-- Los mensajes de commit van en español.
-- Solo hacer commit si se garantiza que el proyecto compila para ese grupo de cambios.
-
 ## Qué NO hacer
 - No commitear la sesión de WhatsApp (auth local) ni ninguna API key al repo: `ANTHROPIC_API_KEY`
   y las credenciales de Binance se leen solo de variables de entorno (RNF-02, RNF-03).

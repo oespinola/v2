@@ -18,6 +18,11 @@ pnpm start         # levantar en modo LIVE (órdenes reales en Binance)
 pnpm test          # correr tests
 ```
 
+## Commits en el proyecto
+- Es muy importante realizar commits a medida que vamos modificando cosas.
+- Antes de realizar un commit es necesario validar que el software funcione o no
+  deje de compilar.
+
 ## Qué NO hacer
 - No commitear la sesión de WhatsApp (auth local) ni ninguna API key al repo: `ANTHROPIC_API_KEY`
   y las credenciales de Binance se leen solo de variables de entorno (RNF-02, RNF-03).

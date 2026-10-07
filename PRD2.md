@@ -61,7 +61,7 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   `pnpm start`.
 - RF-08: El sistema debe calcular la cantidad a operar dividiendo un riesgo fijo R en
   USDT, configurado por el operador, por la distancia |Entrada − SL|, redondeando hacia
-  abajo al stepSize del símbolo.
+  abajo al stepSize del símbolo y usando los precios ya ajustados al tickSize (RF-37).
 - RF-09: El sistema debe extraer de cada alerta la entrada, el objetivo, el stop loss,
   el nivel de riesgo y el ticker a partir del texto del mensaje.
 - RF-10: El sistema debe considerar una operación completa solo cuando la entrada tenga
@@ -70,8 +70,9 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - RF-11: El sistema debe asignar a cada alerta procesada (cargada o rechazada) un
   identificador único persistente, formado por el ID del mensaje de WhatsApp y un hash
   de (ticker, Entrada, SL, TP).
-- RF-12: El sistema debe rechazar una alerta válida si abrirla superaría el máximo
-  configurable de posiciones simultáneas abiertas.
+- RF-12: El sistema debe rechazar una alerta válida si abrirla haría que la suma de
+  posiciones abiertas y órdenes de entrada pendientes supere el máximo configurable de
+  posiciones simultáneas.
 - RF-13: El sistema debe rechazar una señal cuyo Take Profit no esté del lado correcto
   de la Entrada: por encima para LONG, por debajo para SHORT.
 - RF-14: El sistema debe rechazar una señal cuyo Stop Loss sea igual a la Entrada.
@@ -83,13 +84,12 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - RF-17: El sistema debe rechazar una alerta a la que le falte cualquiera de los datos
   de RF-09 después de analizar texto e imagen.
 - RF-18: Si la orden de entrada tuvo ejecución y la colocación del SL o del TP falla, el
-  sistema debe cerrar la posición con una orden a mercado y registrar el evento como
-  crítico en el log.
+  sistema debe cerrar la posición con una orden a mercado.
 - RF-19: Si la orden de entrada falla o no tiene ninguna ejecución a los 3 minutos de
   colocada, el sistema debe cancelarla y no colocar SL ni TP.
 - RF-20: El sistema debe rechazar una alerta válida si abrirla haría que el nocional
-  total de las posiciones abiertas supere el máximo configurable de capital
-  comprometido (USDT).
+  total de las posiciones abiertas y de las órdenes de entrada pendientes supere el
+  máximo configurable de capital comprometido (USDT).
 - RF-21: El sistema debe rechazar una alerta si la copia local del ranking de top 3
   (RF-23) tiene más de 120 s de antigüedad al recibirla.
 - RF-22: El sistema debe rechazar las alertas cuyo remitente no esté en una lista
@@ -114,8 +114,9 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - RF-28: Si el objetivo de la alerta trae un precio numérico, el sistema debe usar ese
   precio como Take Profit.
 - RF-29: El sistema debe rechazar como duplicado, sin operarla, una alerta cuyo ID de
-  mensaje de WhatsApp o cuyo hash de (ticker, Entrada, SL, TP) coincida con el de una
-  alerta ya registrada (RF-11).
+  mensaje de WhatsApp coincida con el de cualquier alerta ya registrada, o cuyo hash
+  de (ticker, Entrada, SL, TP) coincida con el de una alerta registrada en las últimas
+  24 h (RF-11).
 - RF-30: El sistema debe rechazar una alerta cuya cantidad redondeada (RF-08) quede por
   debajo de la cantidad mínima o del nocional mínimo del símbolo.
 - RF-31: El sistema debe mapear el ticker de la alerta al contrato perpetuo
@@ -132,6 +133,16 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   posición abierta.
 - RF-36: El sistema debe rechazar una alerta si, al calcular el TP (RF-24), ni ASL21 ni
   EMA55 quedan del lado correcto de la Entrada.
+- RF-37: El sistema debe ajustar los precios de la alerta al tickSize del símbolo: la
+  Entrada al tick más cercano, el SL alejándolo de la Entrada y el TP acercándolo a la
+  Entrada.
+- RF-38: El sistema debe evaluar las validaciones en este orden y registrar como
+  motivo de rechazo solo la primera que falle: remitente no autorizado, duplicado (ID
+  de WhatsApp), incompleta, duplicado (hash), ticker inexistente, SL igual a la
+  Entrada, TP inválido, ranking no disponible, top 3 ganadores/perdedores, bajo
+  mínimo, excede máximos, límite de posiciones, límite de capital.
+- RF-39: El sistema debe registrar como evento crítico en el log cada cierre de
+  emergencia de RF-18.
 
 ## Requerimientos No Funcionales
 - RNF-01: El tiempo desde que el mensaje llega al sistema hasta que la alerta queda
@@ -201,14 +212,14 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - AC-15 (RF-10): Dada una alerta válida y ya dimensionada (RF-08), cuando el sistema
   coloca la operación, entonces el log la marca como "completa" solo después de que
   Binance confirma la ejecución de la entrada y la aceptación del SL y del TP.
-- AC-16 (RF-18): Dado que la orden de entrada ya tuvo ejecución, cuando la colocación
+- AC-16 (RF-18, RF-39): Dado que la orden de entrada ya tuvo ejecución, cuando la colocación
   del SL o del TP falla, entonces el sistema cierra la posición con una orden a mercado
   en < 5 s desde la falla y registra el evento como crítico en el log.
 - AC-17 (RF-11, RF-29): Dado que una alerta ya fue registrada, cuando el sistema vuelve
   a recibir el mismo mensaje de WhatsApp (por ejemplo, tras un reinicio), entonces no
   la opera y la loguea como "duplicado".
 - AC-18 (RF-12): Dado que la cantidad de posiciones abiertas es igual al máximo
-  configurado, cuando llega una nueva alerta válida, entonces el sistema la rechaza y
+  configurado y no hay entradas pendientes, cuando llega una nueva alerta válida, entonces el sistema la rechaza y
   loguea el motivo "límite de posiciones".
 - AC-19 (RF-14): Dada una señal con SL igual a la Entrada, cuando el sistema la
   valida, entonces la rechaza y loguea el motivo "SL igual a la Entrada".
@@ -223,7 +234,8 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - AC-23 (RF-19): Dada una orden de entrada sin ninguna ejecución, cuando falla o pasan
   3 minutos desde que se colocó, entonces el sistema la cancela, no coloca SL ni TP y
   registra el estado "entrada no ejecutada".
-- AC-24 (RF-20): Dado un nocional total de posiciones abiertas C y un máximo M, cuando
+- AC-24 (RF-20): Dado un nocional total de posiciones abiertas y entradas pendientes C
+  y un máximo M, cuando
   llega una alerta válida con nocional X y C + X > M, entonces el sistema la rechaza y
   loguea el motivo "límite de capital".
 - AC-25 (RF-21): Dada una copia local del ranking con más de 120 s de antigüedad,
@@ -257,8 +269,8 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   del texto, cuando llega al sistema, entonces se procesa como alerta.
 - AC-36 (RF-27): Dadas dos alertas idénticas salvo el nivel de riesgo (Medio y Alto),
   cuando el sistema calcula la cantidad, entonces ambas dan la misma cantidad.
-- AC-37 (RF-29): Dada una alerta ya registrada, cuando llega un reenvío con otro ID de
-  mensaje de WhatsApp pero el mismo ticker, Entrada, SL y TP, entonces el sistema no la
+- AC-37 (RF-29): Dada una alerta registrada hace menos de 24 h, cuando llega un reenvío
+  con otro ID de mensaje de WhatsApp pero el mismo ticker, Entrada, SL y TP, entonces el sistema no la
   opera y la loguea como "duplicado".
 - AC-38 (RF-23): Dado un conjunto conocido de tickers de 24 h que incluye un contrato
   en estado distinto de TRADING con el mayor porcentaje de cambio, cuando el sistema
@@ -277,21 +289,20 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   "ticker inexistente".
 - AC-43 (RF-33): Dada una alerta válida con Entrada E, cuando el sistema coloca la
   entrada, entonces la orden enviada a Binance es de tipo límite con precio E.
-- AC-44 (RF-34): Dada una orden de entrada sin ejecución, cuando registra una ejecución
-  parcial, entonces el sistema coloca el SL y el TP cubriendo la posición abierta; y
-  mientras no hubo ejecución, no hay SL ni TP enviados.
+- AC-44 (RF-34): Dada una orden de entrada colocada, cuando todavía no tuvo ninguna
+  ejecución, entonces el sistema no envió ninguna orden de SL ni de TP.
 - AC-45 (RF-35): Dada una orden de entrada con ejecución parcial, cuando pasan 3
   minutos desde que se colocó, entonces el sistema cancela la parte no ejecutada y el
   SL y el TP siguen cubriendo la posición abierta.
-- AC-46 (RNF-01): Dado un lote de alertas de prueba solo-texto y otro que requiere
-  imagen, cuando se mide el tiempo desde la llegada hasta la clasificación, entonces el
+- AC-46 (RNF-01): Dado un lote de 20 alertas de prueba solo-texto y otro de 20 que
+  requieren imagen, cuando se mide el tiempo desde la llegada hasta la clasificación, entonces el
   p95 es < 3 s para el primero y < 10 s para el segundo.
 - AC-47 (RNF-04): Dada una conexión activa a WhatsApp o a Binance, cuando se corta,
   entonces el sistema registra la interrupción en < 30 s, reintenta con esperas de 1 s,
   2 s, 4 s… hasta 60 s, y al 10.º intento fallido consecutivo registra un evento
   crítico.
-- AC-48 (RNF-09): Dado un lote de alertas válidas de prueba solo-texto y otro que
-  requiere imagen, cuando se mide el tiempo desde la llegada hasta que Binance acepta
+- AC-48 (RNF-09): Dado un lote de 20 alertas válidas de prueba solo-texto y otro de 20
+  que requieren imagen, cuando se mide el tiempo desde la llegada hasta que Binance acepta
   la orden de entrada, entonces el p95 es < 5 s para el primero y < 12 s para el
   segundo.
 - AC-49 (RNF-07): Dada la configuración del sistema, cuando se revisan las variables de
@@ -299,6 +310,20 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   variables con nombres distintos.
 - AC-50 (RNF-10): Dado el sistema corriendo, cuando se revisan los permisos del log y
   del almacenamiento local, entonces son 0600 y el dueño es el usuario del proceso.
+- AC-51 (RF-12): Dado un máximo de 1 posición, sin posiciones abiertas y con una orden
+  de entrada pendiente, cuando llega una nueva alerta válida, entonces el sistema la
+  rechaza y loguea el motivo "límite de posiciones".
+- AC-52 (RF-37): Dado un símbolo con tickSize 0.01 y una alerta LONG con Entrada
+  10.004, SL 9.507 y TP 11.003, cuando el sistema ajusta los precios, entonces quedan
+  Entrada 10.00, SL 9.50 y TP 11.00.
+- AC-53 (RF-29): Dada una alerta registrada hace más de 24 h, cuando llega otra con otro
+  ID de mensaje de WhatsApp y el mismo ticker, Entrada, SL y TP, entonces el sistema no
+  la rechaza como duplicado.
+- AC-54 (RF-38): Dada una alerta de un remitente no autorizado a la que además le faltan
+  datos, cuando el sistema la valida, entonces loguea un único motivo: "remitente no
+  autorizado".
+- AC-55 (RF-34): Dada una orden de entrada sin ejecución, cuando registra una ejecución
+  parcial, entonces el sistema coloca el SL y el TP cubriendo la posición abierta.
 
 ## Fuera de Alcance
 - Backtesting o análisis de performance histórica (no se calcula drawdown
@@ -354,7 +379,7 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - Riesgo: con alertas llegando durante todo el día, la exposición total puede crecer
   sin control aunque cada operación individual esté acotada (RF-15) → mitigación:
   límite configurable de posiciones simultáneas (RF-12) y de capital total
-  comprometido (RF-20).
+  comprometido (RF-20), contando también las entradas pendientes.
 - Dependencias:
   - API de Anthropic Claude (parseo de texto y de imagen).
   - API de Binance Futuros vía CCXT (órdenes, balance, datos de top

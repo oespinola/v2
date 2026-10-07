@@ -259,3 +259,5 @@ para poder auditar qué se ejecutó, qué se descartó, y por qué.
     retiro).
   - Almacenamiento local persistente para el registro de alertas ya procesadas
     (idempotencia, RF-11) y de posiciones abiertas (exposición total, RF-12/RF-20).
+
+<!-- Comentario de prueba para verificar el push a git -->

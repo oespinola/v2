@@ -13,8 +13,8 @@ y carga automáticamente como órdenes long/short (entrada, SL, TP) en Binance F
 ## Cómo correr
 ```bash
 pnpm install       # instalar dependencias
-pnpm dev           # levantar en modo DRY (órdenes contra Binance Futures Testnet/Demo)
-pnpm start         # levantar en modo LIVE (órdenes reales en Binance)
+pnpm dev           # levantar en modo DRY (órdenes contra Binance Demo Trading, demo.binance.com)
+pnpm start         # levantar en modo LIVE (órdenes reales en Binance Futuros)
 pnpm test          # correr tests
 ```
 
@@ -27,7 +27,7 @@ pnpm test          # correr tests
 - No commitear la sesión de WhatsApp (auth local) ni ninguna API key al repo: `ANTHROPIC_API_KEY`
   y las credenciales de Binance se leen solo de variables de entorno (RNF-02, RNF-03).
 - No habilitar permiso de retiro de fondos en la API key de Binance: debe tener únicamente
-  permiso de trading (RNF-02).
+  permiso de trading (RNF-08).
 - No colocar la entrada sin garantizar SL y TP: si la entrada se ejecuta y falla la
   colocación de SL o TP, hay que cerrar la posición de inmediato en vez de dejarla
-  desprotegida (RF-10, RF-18).
+  desprotegida (RF-10, RF-18, RF-34, RF-39).

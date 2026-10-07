@@ -11,6 +11,7 @@ auditoría sale limpia.
 
 ## El template del curso (estructura obligatoria)
 
+```markdown
 # PRD-001: <nombre del proyecto> — <una línea de qué es>
 ## Contexto y Problema           (el dolor real y para quién; personas: quién lo usa y qué necesita)
 ## Objetivos                     (qué significa ganar, a nivel producto)
@@ -19,6 +20,7 @@ auditoría sale limpia.
 ## Criterios de Aceptación       (AC-01 (RF-01): Dado <contexto>, cuando <acción>, entonces <resultado medible>)
 ## Fuera de Alcance              (lo que explícitamente NO entra)
 ## Riesgos y Dependencias        (riesgo → mitigación; de qué depende)
+```
 
 ## Paso 1 — Crear o normalizar
 

@@ -37,7 +37,8 @@ mensaje ─┬─ ignorado (RF-03, no se loguea)
                     └─ válida ── entrada pendiente ─┬─ entrada no ejecutada (RF-19)
                                                     └─ con ejecución ─┬─ cerrada por emergencia (RF-18)
                                                                       └─ completa (RF-10)
-                                                                           └─ cierre de la posición ← PRD-003
+                                                                           ├─ cerrada (TP, SL, manual) ← PRD-003
+                                                                           └─ liquidada                ← PRD-003
 ```
 
 Documentos de este PRD:
@@ -48,7 +49,9 @@ Documentos de este PRD:
   mensaje hasta que la alerta queda válida o rechazada.
 - [PRD-002](PRD-002-carga-reversion.md): carga y reversión — dimensionamiento, límites
   de exposición, colocación de entrada/SL/TP y reversión ante fallas.
-- PRD-003: seguimiento y cierre — en relevamiento.
+- [PRD-003](PRD-003-seguimiento-cierre.md): seguimiento y cierre — detección del
+  cierre de la posición, cancelación de órdenes huérfanas, liberación de cupo y
+  reconciliación al arrancar.
 
 Los identificadores RF/RNF/AC son globales y únicos entre todos los documentos.
 
@@ -66,8 +69,9 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   rechazada, con los campos: identificador (RF-11), fecha/hora, remitente, modo
   (DRY/LIVE), ticker, símbolo, side, Entrada, SL, TP y origen del TP (alerta o
   calculado), cantidad, riesgo R configurado, nivel de riesgo, IDs de las órdenes de
-  Binance y estado final (completa, rechazada + motivo, cerrada por emergencia, entrada
-  no ejecutada). Los campos que no apliquen quedan vacíos.
+  Binance, causa de cierre, fecha/hora de cierre, PnL realizado, comisiones y estado
+  (completa, rechazada + motivo, cerrada por emergencia, entrada no ejecutada,
+  cerrada, liquidada). Los campos que no apliquen quedan vacíos.
 - RF-06: El sistema debe requerir autenticación para conectarse a WhatsApp, mediante
   un código QR que vincule la cuenta cuyo(s) grupo(s) de alertas se van a monitorear.
 - RF-07: El sistema debe arrancar en modo DRY con `pnpm dev` y en modo LIVE con

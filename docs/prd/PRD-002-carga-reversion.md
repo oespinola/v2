@@ -99,7 +99,8 @@ Binance Futuros con SL y TP correctos, sin dejar nunca una posición desprotegid
 
 ## Fuera de Alcance
 - Recolocar una entrada que venció sin ejecutarse (RF-19).
-- Lo que ocurre con la posición después de quedar completa (ver PRD-003).
+- Lo que ocurre con la posición después de quedar completa (ver
+  [PRD-003](PRD-003-seguimiento-cierre.md)).
 - Ver también el Fuera de Alcance global en [PRD-000](PRD-000-marco.md).
 
 ## Riesgos y Dependencias
@@ -116,7 +117,7 @@ Binance Futuros con SL y TP correctos, sin dejar nunca una posición desprotegid
   - [PRD-001](PRD-001-ingesta-validacion.md): alerta válida con símbolo y precios
     ajustados.
   - [PRD-000](PRD-000-marco.md): log (RF-05) y modos DRY/LIVE.
-  - PRD-003: detección del cierre de posiciones, necesaria para el conteo de
+  - [PRD-003](PRD-003-seguimiento-cierre.md): detección del cierre de posiciones, necesaria para el conteo de
     posiciones abiertas y capital comprometido (RF-12, RF-20).
   - API de Binance Futuros vía CCXT (órdenes, balance, filtros de símbolo).
   - Almacenamiento local persistente de posiciones abiertas y entradas pendientes

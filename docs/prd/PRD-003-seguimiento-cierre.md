@@ -16,8 +16,10 @@ cupo de exposición se libere apenas una posición se cierra, y que no queden en
 órdenes huérfanas de operaciones ya cerradas, sin intervención manual del operador.
 
 ## Requerimientos Funcionales
-- RF-40: El sistema debe detectar el cierre de cada posición completa (RF-10) e
-  identificar su causa: TP, SL, cierre manual del operador o liquidación.
+- RF-40: El sistema debe detectar el cierre total de cada posición completa (RF-10) e
+  identificar su causa: TP, SL, liquidación o cierre manual del operador, entendido
+  como todo cierre total que no se deba a la orden de TP, a la de SL ni a una
+  liquidación.
 - RF-41: Al detectar el cierre de una posición, el sistema debe cancelar las órdenes de
   SL y TP de esa operación que sigan abiertas en Binance.
 - RF-42: Al detectar el cierre de una posición, el sistema debe dejar de contarla para
@@ -35,10 +37,18 @@ cupo de exposición se libere apenas una posición se cierra, y que no queden en
   RF-44.
 - RF-47: Si una posición abierta pierde su orden de SL o de TP sin haberse cerrado, el
   sistema debe registrarlo como evento crítico en el log, sin modificar la posición.
+- RF-48: Durante la comparación de RF-45, para cada entrada pendiente local que en
+  Binance tuvo ejecución, el sistema debe colocar el SL y el TP (RF-34) y, si la
+  colocación falla, cerrar la posición a mercado (RF-18).
+- RF-49: Durante la comparación de RF-45, para cada entrada pendiente local cuyo plazo
+  de 3 minutos venció, el sistema debe aplicar RF-19 o RF-35 según haya tenido o no
+  ejecución.
 
 ## Requerimientos No Funcionales
 - RNF-11: El tiempo desde que una posición se cierra en Binance hasta que el sistema
-  registra el cierre (RF-43) y libera su cupo (RF-42) debe ser < 10 s.
+  registra el cierre (RF-43) y libera su cupo (RF-42), y desde que una posición
+  abierta pierde su SL o su TP hasta que el sistema registra el evento crítico
+  (RF-47), debe ser < 10 s.
 
 ## Criterios de Aceptación
 - AC-56 (RF-40, RF-43, RF-44): Dada una posición completa, cuando se ejecuta su orden
@@ -67,12 +77,22 @@ cupo de exposición se libere apenas una posición se cierra, y que no queden en
 - AC-64 (RF-47): Dada una posición completa, cuando el operador cancela a mano su
   orden de SL, entonces el sistema registra un evento crítico y la posición y su TP
   quedan sin cambios.
+- AC-65 (RF-45, RF-48): Dado el proceso detenido y una entrada pendiente que se ejecuta
+  mientras tanto, cuando el sistema vuelve a arrancar, entonces, antes de procesar
+  cualquier alerta nueva, coloca el SL y el TP cubriendo la posición.
+- AC-66 (RF-45, RF-49): Dado el proceso detenido y una entrada pendiente sin ejecución
+  cuyo plazo de 3 minutos vence mientras tanto, cuando el sistema vuelve a arrancar,
+  entonces la cancela y registra el estado "entrada no ejecutada".
+- AC-67 (RNF-11): Dadas 20 cancelaciones manuales de prueba del SL o del TP de
+  posiciones abiertas en DRY, cuando se mide el tiempo desde la cancelación hasta el
+  registro del evento crítico, entonces todos son < 10 s.
 
 ## Fuera de Alcance
 - Mensajes de seguimiento de una alerta ya operada (cerrar, mover el SL, tomar
   parciales).
 - Gestión activa de la posición abierta (trailing stop, múltiples TP).
 - Volver a colocar un SL o TP que desapareció (RF-47 solo lo registra).
+- Cierres parciales manuales de la posición por el operador.
 - Precio de salida y duración de la operación en el log.
 - Análisis o reportes de PnL (ver Fuera de Alcance global en
   [PRD-000](PRD-000-marco.md)).

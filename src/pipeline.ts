@@ -81,7 +81,7 @@ function draftFrom(msg: IncomingMessage, mode: Mode, fields: PartialFields): Dra
   };
 }
 
-// Pasos 5 a 9 de RF-38 sobre una alerta completa.
+// Pasos 5 a 10 de RF-38 sobre una alerta completa.
 async function validate(
   fields: AlertFields,
   draft: Draft,

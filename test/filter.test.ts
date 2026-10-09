@@ -42,6 +42,13 @@ describe('loadConfig', () => {
     expect([...config.authorizedSenders]).toEqual(['tomy@lid', 'cris@lid']);
     expect(config.groupName).toBe('ALERTAS CRYPTO+');
     expect(config.anthropicApiKey).toBeNull();
+    expect(config.maxSlDistancePct).toBe(15);
+  });
+
+  it('lee MAX_SL_DISTANCE_PCT y rechaza valores inválidos', () => {
+    expect(loadConfig({ ...base, MAX_SL_DISTANCE_PCT: '10' }).maxSlDistancePct).toBe(10);
+    expect(() => loadConfig({ ...base, MAX_SL_DISTANCE_PCT: '0' })).toThrow(/MAX_SL_DISTANCE_PCT/);
+    expect(() => loadConfig({ ...base, MAX_SL_DISTANCE_PCT: 'abc' })).toThrow(/MAX_SL_DISTANCE_PCT/);
   });
 
   it.each([undefined, '', ' , '])('falla si AUTHORIZED_SENDERS está vacío (%j)', (value) => {

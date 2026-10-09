@@ -9,6 +9,8 @@ export interface Config {
   // Sin clave el respaldo con Claude queda apagado: si el regex no alcanza, la alerta
   // se rechaza como incompleta (RF-17).
   anthropicApiKey: string | null;
+  // RF-50: distancia máxima entre Entrada y SL, en % de la Entrada.
+  maxSlDistancePct: number;
 }
 
 function parseMode(raw: string | undefined): Mode {
@@ -31,6 +33,15 @@ function parseSenders(raw: string | undefined): ReadonlySet<string> {
   return senders;
 }
 
+function parseMaxSlDistance(raw: string | undefined): number {
+  if (raw === undefined || raw.trim() === '') return 15;
+  const pct = Number(raw);
+  if (!Number.isFinite(pct) || pct <= 0) {
+    throw new Error(`MAX_SL_DISTANCE_PCT debe ser un número mayor que 0 (llegó ${JSON.stringify(raw)}).`);
+  }
+  return pct;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     mode: parseMode(env.SIGNALBRIDGE_MODE),
@@ -39,6 +50,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     dataDir: env.SIGNALBRIDGE_DATA_DIR?.trim() || 'data',
     whatsappAuthDir: env.WHATSAPP_AUTH_DIR?.trim() || '.wwebjs_auth',
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || null,
+    maxSlDistancePct: parseMaxSlDistance(env.MAX_SL_DISTANCE_PCT),
   };
 }
 

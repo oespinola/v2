@@ -52,6 +52,7 @@ beforeEach(() => {
   deps = {
     mode: 'DRY',
     authorizedSenders: new Set(['tomy@lid', 'cris@lid']),
+    maxSlDistancePct: 15,
     store,
     claude: null,
     market: {
@@ -62,6 +63,9 @@ beforeEach(() => {
           perp('COTIUSDT', '0.00001'),
           perp('1000PEPEUSDT', '0.0001'),
           perp('XUSDT', '0.01'),
+          perp('AXSUSDT', '0.001'),
+          perp('C98USDT', '0.00001'),
+          perp('ETHUSDT', '0.01'),
           perp('YUSDT', '0.01'),
         ].map((s) => [s.symbol, s]),
       ),
@@ -123,6 +127,42 @@ describe('processMessage', () => {
       status: 'rechazada',
       reason: 'SL igual a la Entrada',
     });
+  });
+
+  it('AC-68: AXS real (Entrada 1.246, SL 0.1222: 90 %) → "SL fuera de rango", sin pedir velas', async () => {
+    const closes1h = vi.spyOn(deps.market, 'closes1h');
+    const body = alerts.axs.replace('SL: 1.222', 'SL: 0.1222');
+    expect(await processMessage(message(body), deps)).toMatchObject({
+      status: 'rechazada',
+      reason: 'SL fuera de rango',
+      record: { detail: 'el SL está a 90.19 % de la Entrada (máximo 15 %)' },
+    });
+    expect(closes1h).not.toHaveBeenCalled();
+  });
+
+  it('RF-50: C98 real (SL a 5,88 %), la legítima más lejana, pasa', async () => {
+    const body = alerts.kaia
+      .replace('KAIA', 'C98')
+      .replace('Entrada: 0.0402', 'Entrada: 0.01923')
+      .replace('0.0380 usd', '0.01719 usd')
+      .replace('SL: 0.0414', 'SL: 0.02036');
+    expect(await processMessage(message(body), deps)).toMatchObject({ status: 'válida', alert: { symbol: 'C98USDT' } });
+  });
+
+  it.each([
+    ['85', 'válida'],
+    ['84.99', 'rechazada'],
+  ])('RF-50: borde del 15 %% (Entrada 100, SL %s) → %s', async (sl, status) => {
+    const body = alerts.eth
+      .replace('Entrada: 2500', 'Entrada: 100')
+      .replace('2577.29 usd', '110 usd')
+      .replace('SL: 2400', `SL: ${sl}`);
+    expect(await processMessage(message(body), deps)).toMatchObject({ status });
+  });
+
+  it('RF-38: SL igual a la Entrada se informa antes que SL fuera de rango', async () => {
+    const body = alerts.kaia.replace('SL: 0.0414', 'SL: 0.0402');
+    expect(await processMessage(message(body), deps)).toMatchObject({ reason: 'SL igual a la Entrada' });
   });
 
   it('AC-41: PEPE sin PEPEUSDT → 1000PEPEUSDT con precios ×1000', async () => {

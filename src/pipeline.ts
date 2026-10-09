@@ -24,6 +24,7 @@ import type {
 export interface PipelineDeps {
   mode: Mode;
   authorizedSenders: ReadonlySet<string>;
+  maxSlDistancePct: number; // RF-50
   store: AlertStore;
   claude: FieldExtractor | null;
   market: {
@@ -98,6 +99,14 @@ async function validate(
 
   // RF-14
   if (entry === stopLoss) throw new Rejection('SL igual a la Entrada');
+  // RF-50: un SL muy lejos de la Entrada suele ser un error de tipeo (AXS: 1.246 / 0.1222).
+  const slDistancePct = (Math.abs(entry - stopLoss) / entry) * 100;
+  if (slDistancePct > deps.maxSlDistancePct) {
+    throw new Rejection(
+      'SL fuera de rango',
+      `el SL está a ${slDistancePct.toFixed(2)} % de la Entrada (máximo ${deps.maxSlDistancePct} %)`,
+    );
+  }
   const side = sideOf(entry, stopLoss);
   draft.side = side;
 

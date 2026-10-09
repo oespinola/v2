@@ -25,6 +25,7 @@ async function main(): Promise<void> {
   const deps = {
     mode: config.mode,
     authorizedSenders: config.authorizedSenders,
+    maxSlDistancePct: config.maxSlDistancePct,
     store,
     claude: config.anthropicApiKey ? new ClaudeExtractor(config.anthropicApiKey) : null,
     market,

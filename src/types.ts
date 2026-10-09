@@ -40,6 +40,7 @@ export const REJECT_REASONS = [
   'incompleta',
   'ticker inexistente',
   'SL igual a la Entrada',
+  'SL fuera de rango',
   'TP inválido',
   'ranking no disponible',
   'top 3 ganadores/perdedores',

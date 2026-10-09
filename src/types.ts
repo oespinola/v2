@@ -60,6 +60,29 @@ export interface ValidAlert {
   riskLevel: RiskLevel;
 }
 
+// Edición de un mensaje del grupo, ya desacoplada de whatsapp-web.js.
+export interface IncomingEdit {
+  waMessageId: string;
+  senderId: string;
+  prevBody: string;
+  newBody: string;
+  editedAt: Date;
+}
+
+// Edición de una alerta ya procesada: se registra para revisión manual y no se opera
+// (Fuera de Alcance de PRD-000).
+export interface EditRecord {
+  event: 'alerta editada tras procesarse';
+  alertId: string; // el de la alerta original (RF-11)
+  waMessageId: string;
+  editedAt: string; // ISO
+  senderId: string;
+  mode: Mode;
+  changes: string[]; // p. ej. ["SL 145 → 148"]
+  prevBody: string;
+  newBody: string;
+}
+
 // Registro de RF-05 para el tramo de PRD-001. Los campos de órdenes, cantidad y cierre
 // llegan con PRD-002/PRD-003.
 export interface AlertRecord {

@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { SymbolInfo } from '../src/binance-public.ts';
 import type { FieldExtractor } from '../src/claude-extractor.ts';
 import type { Ranking } from '../src/market-data.ts';
-import { processMessage, sideOf, type PipelineDeps } from '../src/pipeline.ts';
+import { processEdit, processMessage, sideOf, type PipelineDeps } from '../src/pipeline.ts';
+import { describeEdit } from '../src/report.ts';
 import { SqliteAlertStore } from '../src/store.ts';
 import type { AlertImage, IncomingMessage } from '../src/types.ts';
 import { alerts } from './fixtures/alerts.ts';
@@ -275,5 +276,78 @@ describe('registro (RF-05, RF-11, RNF-10)', () => {
     const lines = readFileSync(path.join(dir, 'alerts.log'), 'utf8').trim().split('\n');
     expect(lines).toHaveLength(1);
     expect(JSON.parse(lines[0]!)).toMatchObject({ ticker: 'KAIA', status: 'válida' });
+  });
+});
+
+describe('ediciones de alertas ya procesadas', () => {
+  // Las tres ediciones reales que capturó la v1 (7 y 8 de octubre).
+  const jto = (entry: string, sl: string) =>
+    `*JTO - ALERTA DE TRADING*\nEntrada: ${entry} usd\nObj.: ASL21, EMA55 \nSL: ${sl} usd\nRiesgo medio-alto 🟠`;
+  const kava = (ticker: string) =>
+    `*${ticker} - ALERTA DE TRADING*\nEntrada: 0.06808 usd\nObj.: ASL21, EMA55 \nSL: 0.06854 usd\nRiesgo medio 🟡`;
+  const bananas = (desc: string) =>
+    `*BANANAS31 - ALERTA DE TRADING*\n${desc}\nEntrada: 0.006633 usd\nObj.: ASL21, EMA55 \nSL: 0.006431 usd\nRiesgo medio 🟡`;
+
+  const edit = (waMessageId: string, prevBody: string, newBody: string) => ({
+    waMessageId,
+    senderId: 'cris@lid',
+    prevBody,
+    newBody,
+    editedAt: new Date(NOW.getTime() + 60_000),
+  });
+
+  it('JTO: registra el cambio de Entrada y SL ligado a la alerta original, sin operar', async () => {
+    const original = await processMessage(message(jto('0.501', '0.0602'), { waMessageId: 'JTO1' }), deps);
+    if (original.status === 'ignorada') throw new Error('debía procesarse');
+    const record = processEdit(edit('JTO1', jto('0.501', '0.0602'), jto('0.5015', '0.4775')), deps);
+    expect(record).toMatchObject({
+      event: 'alerta editada tras procesarse',
+      alertId: original.record.alertId,
+      changes: ['Entrada 0.501 → 0.5015', 'SL 0.0602 → 0.4775'],
+    });
+    expect(describeEdit(record!)).toBe('[DRY] JTO EDITADA tras procesarse (no se opera): Entrada 0.501 → 0.5015, SL 0.0602 → 0.4775');
+  });
+
+  it('KAVA: registra el cambio de ticker en el título', async () => {
+    await processMessage(message(kava('ETH'), { waMessageId: 'KAVA1' }), deps);
+    expect(processEdit(edit('KAVA1', kava('ETH'), kava('KAVA')), deps)?.changes).toEqual(['Ticker ETH → KAVA']);
+  });
+
+  it('BANANAS31: si solo cambia la descripción, lo dice', async () => {
+    await processMessage(message(bananas('G es el token de Gravity.'), { waMessageId: 'BAN1' }), deps);
+    expect(processEdit(edit('BAN1', bananas('G es el token de Gravity.'), bananas('BANANAS31 es una memecoin.')), deps)?.changes).toEqual([
+      'solo cambió el texto, no los datos de la alerta',
+    ]);
+  });
+
+  it('ignora la edición de un mensaje que nunca se procesó como alerta', () => {
+    const saveEdit = vi.spyOn(store, 'saveEdit');
+    expect(processEdit(edit('CHARLA1', 'hola', 'hola a todos'), deps)).toBeNull();
+    expect(saveEdit).not.toHaveBeenCalled();
+  });
+
+  it('la edición no cambia el registro de la alerta: reprocesar el original sigue siendo duplicado', async () => {
+    await processMessage(message(jto('0.501', '0.0602'), { waMessageId: 'JTO2' }), deps);
+    processEdit(edit('JTO2', jto('0.501', '0.0602'), jto('0.5015', '0.4775')), deps);
+    expect(await processMessage(message(jto('0.501', '0.0602'), { waMessageId: 'JTO2' }), deps)).toMatchObject({
+      status: 'rechazada',
+      reason: 'duplicado',
+    });
+  });
+
+  it('queda en el log JSONL con el texto anterior y el nuevo', async () => {
+    const dir = path.join(mkdtempSync(path.join(tmpdir(), 'sb-')), 'data');
+    const diskStore = new SqliteAlertStore(dir);
+    const diskDeps = { ...deps, store: diskStore };
+    await processMessage(message(jto('0.501', '0.0602'), { waMessageId: 'JTO3' }), diskDeps);
+    processEdit(edit('JTO3', jto('0.501', '0.0602'), jto('0.5015', '0.4775')), diskDeps);
+    diskStore.close();
+    const lines = readFileSync(path.join(dir, 'alerts.log'), 'utf8').trim().split('\n');
+    expect(lines).toHaveLength(2);
+    expect(JSON.parse(lines[1]!)).toMatchObject({
+      event: 'alerta editada tras procesarse',
+      prevBody: expect.stringContaining('SL: 0.0602'),
+      newBody: expect.stringContaining('SL: 0.4775'),
+    });
   });
 });

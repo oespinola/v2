@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
-import type { AlertFields, AlertRecord } from './types.ts';
+import type { AlertFields, AlertRecord, EditRecord } from './types.ts';
 
 const DUPLICATE_WINDOW_MS = 24 * 60 * 60 * 1000; // RF-29
 
@@ -31,7 +31,10 @@ function touchPrivate(file: string): void {
 export interface AlertStore {
   hasWaMessage(waMessageId: string): boolean;
   hasRecentHash(hash: string, now: Date): boolean;
+  // ID de RF-11 de la primera vez que se procesó ese mensaje, o null.
+  alertIdFor(waMessageId: string): string | null;
   save(record: AlertRecord): void;
+  saveEdit(record: EditRecord): void;
   close(): void;
 }
 
@@ -69,6 +72,13 @@ export class SqliteAlertStore implements AlertStore {
       );
       CREATE INDEX IF NOT EXISTS alerts_wa_message_id ON alerts (wa_message_id);
       CREATE INDEX IF NOT EXISTS alerts_content_hash ON alerts (content_hash, received_at);
+      CREATE TABLE IF NOT EXISTS edits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        alert_id TEXT NOT NULL,
+        wa_message_id TEXT NOT NULL,
+        edited_at INTEGER NOT NULL,
+        record TEXT NOT NULL
+      );
     `);
   }
 
@@ -82,6 +92,20 @@ export class SqliteAlertStore implements AlertStore {
       this.db.prepare('SELECT 1 FROM alerts WHERE content_hash = ? AND received_at >= ? LIMIT 1').get(hash, since) !==
       undefined
     );
+  }
+
+  alertIdFor(waMessageId: string): string | null {
+    const row = this.db.prepare('SELECT alert_id FROM alerts WHERE wa_message_id = ? ORDER BY id LIMIT 1').get(waMessageId) as
+      | { alert_id: string }
+      | undefined;
+    return row?.alert_id ?? null;
+  }
+
+  saveEdit(record: EditRecord): void {
+    this.db
+      .prepare('INSERT INTO edits (alert_id, wa_message_id, edited_at, record) VALUES (?, ?, ?, ?)')
+      .run(record.alertId, record.waMessageId, Date.parse(record.editedAt), JSON.stringify(record));
+    if (this.logFile) appendFileSync(this.logFile, `${JSON.stringify(record)}\n`);
   }
 
   save(record: AlertRecord): void {

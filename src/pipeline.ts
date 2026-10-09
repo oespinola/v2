@@ -10,7 +10,10 @@ import { adjustPricesToTick, mapTicker, scale } from './symbols.ts';
 import type {
   AlertFields,
   AlertRecord,
+  EditRecord,
   ExtractionSource,
+  FieldName,
+  IncomingEdit,
   IncomingMessage,
   Mode,
   RejectReason,
@@ -196,4 +199,50 @@ export async function processMessage(msg: IncomingMessage, deps: PipelineDeps): 
     if (!(err instanceof Rejection)) throw err;
     return { status: 'rechazada', reason: err.reason, record: finish('rechazada', err.reason, err.detail) };
   }
+}
+
+const FIELD_LABELS: Record<FieldName, string> = {
+  ticker: 'Ticker',
+  entry: 'Entrada',
+  stopLoss: 'SL',
+  target: 'Obj.',
+  riskLevel: 'Riesgo',
+};
+
+function formatField(fields: PartialFields, name: FieldName): string {
+  const value = fields[name];
+  if (value === undefined) return '(falta)';
+  if (typeof value === 'object') return value.kind === 'price' ? String(value.price) : 'ASL21, EMA55';
+  return String(value);
+}
+
+// Qué datos de RF-09 cambió la edición, p. ej. ["SL 145 → 148"].
+export function describeChanges(prevBody: string, newBody: string): string[] {
+  const before = parseText(prevBody);
+  const after = parseText(newBody);
+  const changes = (Object.keys(FIELD_LABELS) as FieldName[])
+    .map((name) => [name, formatField(before, name), formatField(after, name)] as const)
+    .filter(([, a, b]) => a !== b)
+    .map(([name, a, b]) => `${FIELD_LABELS[name]} ${a} → ${b}`);
+  return changes.length > 0 ? changes : ['solo cambió el texto, no los datos de la alerta'];
+}
+
+// Edición de un mensaje del grupo. Si el original ya se procesó como alerta, se
+// registra para revisión manual y no se opera; si no, se ignora.
+export function processEdit(edit: IncomingEdit, deps: Pick<PipelineDeps, 'mode' | 'store'>): EditRecord | null {
+  const alertIdOfOriginal = deps.store.alertIdFor(edit.waMessageId);
+  if (alertIdOfOriginal === null) return null;
+  const record: EditRecord = {
+    event: 'alerta editada tras procesarse',
+    alertId: alertIdOfOriginal,
+    waMessageId: edit.waMessageId,
+    editedAt: edit.editedAt.toISOString(),
+    senderId: edit.senderId,
+    mode: deps.mode,
+    changes: describeChanges(edit.prevBody, edit.newBody),
+    prevBody: edit.prevBody,
+    newBody: edit.newBody,
+  };
+  deps.store.saveEdit(record);
+  return record;
 }

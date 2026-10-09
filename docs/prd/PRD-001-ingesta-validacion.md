@@ -69,8 +69,12 @@ top 3 ganadores/perdedores) antes de operar, sin intervención manual del operad
 - RF-38: El sistema debe evaluar las validaciones en este orden y registrar como
   motivo de rechazo solo la primera que falle: remitente no autorizado, duplicado (ID
   de WhatsApp), incompleta, duplicado (hash), ticker inexistente, SL igual a la
-  Entrada, TP inválido, ranking no disponible, top 3 ganadores/perdedores, bajo
-  mínimo, excede máximos, límite de posiciones, límite de capital.
+  Entrada, SL fuera de rango, TP inválido, ranking no disponible, top 3
+  ganadores/perdedores, bajo mínimo, excede máximos, límite de posiciones, límite de
+  capital.
+- RF-50: El sistema debe rechazar una alerta cuyo Stop Loss esté a una distancia de la
+  Entrada mayor que un porcentaje máximo configurable (por defecto 15 %), calculada
+  como |Entrada − SL| / Entrada.
 
 ## Requerimientos No Funcionales
 - RNF-01: El tiempo desde que el mensaje llega al sistema hasta que la alerta queda
@@ -151,6 +155,9 @@ top 3 ganadores/perdedores) antes de operar, sin intervención manual del operad
 - AC-54 (RF-38): Dada una alerta de un remitente no autorizado a la que además le faltan
   datos, cuando el sistema la valida, entonces loguea un único motivo: "remitente no
   autorizado".
+- AC-68 (RF-50): Dada una alerta LONG con Entrada 1.246 y SL 0.1222 y el máximo
+  configurado en 15 %, cuando el sistema la valida, entonces la rechaza y loguea el
+  motivo "SL fuera de rango".
 
 ## Fuera de Alcance
 - Todo lo posterior a que la alerta queda válida: dimensionamiento, límites de

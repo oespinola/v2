@@ -107,9 +107,9 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
   campos de RF-05 que aplican, no vacíos.
 - AC-09 (RF-05): Dada una alerta rechazada, cuando el sistema la descarta, entonces
   guarda un log con el motivo, que es uno de: incompleta, TP inválido, SL igual a la
-  Entrada, top 3 ganadores/perdedores, ranking no disponible, excede máximos, bajo
-  mínimo, ticker inexistente, límite de posiciones, límite de capital, remitente no
-  autorizado, duplicado.
+  Entrada, SL fuera de rango, top 3 ganadores/perdedores, ranking no disponible,
+  excede máximos, bajo mínimo, ticker inexistente, límite de posiciones, límite de
+  capital, remitente no autorizado, duplicado.
 - AC-10 (RF-06): Dado que no hay una sesión de WhatsApp guardada, cuando se arranca el
   sistema, entonces muestra un código QR para vincular la cuenta.
 - AC-11 (RF-07, RF-25): Dado el sistema arrancado con `pnpm dev`, cuando llega una
@@ -152,8 +152,13 @@ todo registrado para poder auditar qué se ejecutó, qué se descartó, y por qu
 - Gestión de la posición una vez abierta (trailing stop, múltiples TP).
 - Multiusuario: un solo operador por instancia.
 - Recolocar una entrada que venció sin ejecutarse (RF-19).
+- Operar la edición de una alerta ya procesada: la edición se registra en el log (texto
+  anterior y nuevo, y los datos que cambiaron) para revisión manual, sin operarla.
 
 ## Riesgos y Dependencias
+- Riesgo: la sesión de WhatsApp se guarda hoy sin cifrar (solo directorio 0700 y
+  excluida del repo); el cifrado de RNF-03 está pendiente → mitigación: implementar
+  RNF-03 es requisito antes de habilitar el modo LIVE.
 - Riesgo: expiración de la sesión o autenticación de WhatsApp (whatsapp-web.js puede
   cerrar sesión o pedir un nuevo QR) → mitigación: detección de desconexión,
   reintento de reconexión automática y registro en el log (RNF-04), reautenticación

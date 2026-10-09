@@ -7,6 +7,8 @@
     "node": ">=22.13"
   },
   "scripts": {
+    "dev": "SIGNALBRIDGE_MODE=DRY tsx src/main.ts",
+    "start": "SIGNALBRIDGE_MODE=LIVE tsx src/main.ts",
     "replay": "SIGNALBRIDGE_MODE=DRY tsx src/replay.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
